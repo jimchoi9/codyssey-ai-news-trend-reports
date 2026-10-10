@@ -1,0 +1,27 @@
+{
+  "database": "data/news.db",
+  "output_dir": "output",
+  "log_file": "logs/news.log",
+  "duplicate_policy": "skip",
+  "request_timeout": 20,
+  "request_delay": 1.0,
+  "user_agent": "NewsLearningProject/1.0",
+  "font_path": "",
+  "sources": {
+    "nasa": {
+      "rss_url": "https://www.nasa.gov/feed/",
+      "crawl_url": "https://www.nasa.gov/news/all-news/",
+      "link_selector": ".hds-content-item a[href*='/news-release/']",
+      "body_selector": ".entry-content",
+      "category": "과학·우주"
+    }
+  },
+  "ai": {
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "model": "gemini-2.5-flash",
+    "api_key_env": "GEMINI_API_KEY",
+    "api_key": "",
+    "timeout": 60,
+    "max_input_chars": 50000
+  }
+}

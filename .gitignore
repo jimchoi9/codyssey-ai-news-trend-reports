@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+config.local.json
+data/
+output/
+logs/
+*.db
+*.db-*
