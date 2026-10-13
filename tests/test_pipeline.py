@@ -46,6 +46,7 @@ def site():
         def do_POST(self):
             payload = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
             state['ai_calls'] += 1
+            state.setdefault('prompts', []).append(payload['messages'][0]['content'])
             assert payload['model'] == 'test-model'
             assert self.headers['Authorization'] == 'Bearer test-key'
             if state['fail_ai']:
@@ -54,7 +55,10 @@ def site():
             text = '한국어 뉴스 요약입니다.'
             if 'trends' in payload['messages'][0]['content']:
                 text = json.dumps({'trends': ['우주 연구 확대'], 'keywords': ['우주', '과학'], 'implications': ['관측 기술 발전']}, ensure_ascii=False)
-            reply = {'choices': [{'message': {'content': text}, 'finish_reason': 'stop'}]}
+            reply = {'choices': [{'message': {'content': text}, 'finish_reason': 'stop'}],
+                     'usage': {'prompt_tokens': 100, 'completion_tokens': 20, 'total_tokens': 120}}
+            if state.get('no_usage'):
+                del reply['usage']
             if state.get('malformed_first') and state['ai_calls'] == 1:
                 reply = {'choices': [None]}
             body = json.dumps(reply).encode()
@@ -138,6 +142,14 @@ def test_full_pipeline_and_persistent_outputs(project):
     wb = load_workbook(output / 'news.xlsx')
     assert wb.active.max_row == 3
     wb.close()
+    run(project, 'export', '--format', 'jsonl', '--status', 'summarized')
+    lines = (output / 'news.jsonl').read_text(encoding='utf-8').splitlines()
+    assert len(lines) == 2
+    first = json.loads(lines[0])
+    assert first['title'] == '우주 뉴스' and first['summary']
+    log = (project[0] / 'app.log').read_text(encoding='utf-8')
+    assert '요약 토큰 합계: 호출 2회 / 입력 200 / 출력 40 / 합계 240' in log
+    assert '분석 토큰 합계: 호출 1회' in log
 
 
 def test_crawl_duplicates_and_upsert_invalidates_old_summary(project):
@@ -225,6 +237,26 @@ def test_limit_selects_remaining_work_and_unchanged_upsert_keeps_summary(project
     run(project, 'clean', '--duplicate-policy', 'upsert')
     run(project, 'summarize', '--all')
     assert project[2]['ai_calls'] == 2
+
+
+def test_jsonl_export_filters_and_missing_usage(project):
+    seed(project)
+    project[2]['no_usage'] = True
+    run(project, 'summarize', '--id', '1')
+    run(project, 'export', '--format', 'jsonl', '--status', 'unsummarized')
+    lines = (project[0] / 'output/news.jsonl').read_text(encoding='utf-8').splitlines()
+    assert [json.loads(line)['id'] for line in lines] == [2]
+    assert json.loads(lines[0])['summary'] is None
+    assert 'usage 미제공 1회' in (project[0] / 'app.log').read_text(encoding='utf-8')
+
+
+def test_prompt_override_from_config(project):
+    seed(project)
+    cfg = json.loads(project[1].read_text(encoding='utf-8'))
+    cfg['ai']['summary_prompt'] = '실험 B: 한 문장으로 요약하세요.'
+    project[1].write_text(json.dumps(cfg), encoding='utf-8')
+    run(project, 'summarize', '--id', '1')
+    assert project[2]['prompts'][-1].startswith('실험 B: 한 문장으로 요약하세요.')
 
 
 def test_stale_analysis_and_export_filters(project):

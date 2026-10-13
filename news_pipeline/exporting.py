@@ -1,5 +1,6 @@
 """Portable exports. Neutralize spreadsheet formulas in untrusted news text."""
 import csv
+import json
 import re
 from pathlib import Path
 
@@ -19,8 +20,13 @@ def export(store, config, filters, format, status=None):
     articles = store.articles(filters, status=status)
     output = Path(config['output_dir'])
     output.mkdir(parents=True, exist_ok=True)
-    path = output / ('news.csv' if format == 'csv' else 'news.xlsx')
-    if format == 'csv':
+    path = output / {'csv': 'news.csv', 'jsonl': 'news.jsonl', 'excel': 'news.xlsx'}[format]
+    if format == 'jsonl':
+        # One article object per line; formula escaping is spreadsheet-only, so values stay verbatim.
+        with path.open('w', encoding='utf-8') as stream:
+            for article in articles:
+                stream.write(json.dumps({k: article[k] for k in FIELDS}, ensure_ascii=False) + '\n')
+    elif format == 'csv':
         with path.open('w', encoding='utf-8-sig', newline='') as stream:
             writer = csv.writer(stream)
             writer.writerow(FIELDS)

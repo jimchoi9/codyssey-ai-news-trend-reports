@@ -35,7 +35,7 @@ def parser():
     p = commands.add_parser('clean', help='검증·정규화·중복 처리')
     p.add_argument('--duplicate-policy', choices=['skip', 'upsert'])
     p.add_argument('--limit', type=positive)
-    for name, description in [('summarize', '기사별 AI 요약'), ('analyze', '종합 AI 분석'), ('report', '콘솔·파일 리포트와 PNG 차트'), ('export', 'CSV·Excel 내보내기')]:
+    for name, description in [('summarize', '기사별 AI 요약'), ('analyze', '종합 AI 분석'), ('report', '콘솔·파일 리포트와 PNG 차트'), ('export', 'CSV·JSONL·Excel 내보내기')]:
         p = commands.add_parser(name, help=description)
         p.add_argument('--category')
         p.add_argument('--date', type=iso_date, help='발행일 UTC')
@@ -53,7 +53,7 @@ def parser():
             p.add_argument('--top', type=positive, default=5)
             p.add_argument('--format', choices=['md', 'txt'], default='md')
         if name == 'export':
-            p.add_argument('--format', choices=['csv', 'excel'], required=True)
+            p.add_argument('--format', choices=['csv', 'jsonl', 'excel'], required=True)
             p.add_argument('--status', choices=['summarized', 'unsummarized'])
     return root
 

@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .env
 config.local.json
+config.exp-*.json
 data/
 logs/
 *.db
