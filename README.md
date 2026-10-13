@@ -183,6 +183,44 @@ python -m pytest -q
 
 모듈: `cli.py`(명령), `config.py`(설정·로그), `storage.py`(저장), `collectors.py`(수집), `cleaning.py`(정제), `ai.py`(요약·분석), `reporting.py`(리포트·차트), `exporting.py`(내보내기).
 
+### 8.1 BeautifulSoup HTML 파싱과 추출 방식
+
+HTML 파싱은 `collectors.py`에서 BeautifulSoup(`html.parser`)과 CSS 선택자(`select`, `select_one`)로 처리합니다. 선택자는 `config.json`의 소스 설정에 두어, 사이트 구조가 바뀌면 코드 대신 설정만 고치면 됩니다.
+
+**1단계: 기사 주소 찾기(방법에 따라 다름)**
+
+| 방법 | 입력 | 추출 방식 |
+|---|---|---|
+| RSS (`--method rss`) | `rss_url`(NASA `/feed/`) | feedparser가 XML을 해석해 항목별 `link`를 얻음. BeautifulSoup 사용 안 함 |
+| 크롤링 (`--method crawl`) | `crawl_url`(NASA 뉴스 목록) | BeautifulSoup으로 목록 HTML을 파싱하고 `link_selector`에 맞는 `<a>`의 `href`를 절대 URL로 변환. 다른 호스트 링크는 제외하고 URL 기준으로 중복 제거 |
+
+NASA 목록의 `link_selector`는 `.hds-content-item a[href*='/news-release/']`입니다. 목록 카드(`.hds-content-item`) 안에서 주소에 `/news-release/`가 들어간 링크, 즉 보도자료만 고릅니다.
+
+```python
+soup = BeautifulSoup(response.text, 'html.parser')
+for link in soup.select(source['link_selector']):
+    url = urljoin(response.url, link.get('href', ''))   # 상대 경로 → 절대 URL
+```
+
+**2단계: 기사 페이지에서 필드 추출(두 방법 공통, `parse_article`)**
+
+| 필드 | 선택자 | 처리 |
+|---|---|---|
+| 본문 | `body_selector` = `.entry-content` | 본문 영역 안의 `script, style, nav, aside, figure, .wp-block-buttons`를 `decompose()`로 제거한 뒤 `<p>` 텍스트를 줄바꿈으로 연결. `<p>`가 없으면 영역 전체 텍스트 사용. 영역이 없으면 오류로 처리 |
+| 제목 | `h1` | 첫 번째 `<h1>` 텍스트 |
+| 발행일 | `meta[property="article:published_time"]`, `meta[name="parsely-pub-date"]`, `meta[name="date"]`, `time[datetime]` | 앞에서부터 처음 일치한 태그의 `content` 또는 `datetime` 값 |
+| 카테고리 | `meta[property="article:section"]` | 없으면 소스 기본 `category`(NASA: `과학·우주`) |
+
+```python
+soup = BeautifulSoup(html, 'html.parser')
+container = soup.select_one(source['body_selector'])
+for node in container.select('script, style, nav, aside, figure, .wp-block-buttons'):
+    node.decompose()                                    # 광고·버튼·캡션 등 본문 외 요소 제거
+body = '\n'.join(p.get_text(' ', strip=True) for p in container.select('p'))
+```
+
+**RSS와 크롤링 추출 결과의 차이:** RSS 방식은 제목·발행일·카테고리를 피드 항목 값(`title`, `published`, `tags`)으로 우선 채우고, 피드에 없는 본문만 기사 HTML에서 가져옵니다. 크롤링 방식은 모든 필드를 기사 HTML에서 추출하므로 메타 태그가 없으면 발행일이 비거나 카테고리가 기본값이 됩니다. 이런 기사는 정제 단계에서 거부되거나 `미분류`·기본 카테고리로 처리됩니다. 추출한 필드와 원본 HTML은 함께 `raw_news`에 저장하므로, 선택자 문제는 원본을 보고 다시 확인할 수 있습니다.
+
 ## 9. AI 프롬프트 개선 및 품질·비용 실험 설계
 
 이 장은 실험 **설계**입니다. 아래 결과표는 실측 후 채웁니다.
