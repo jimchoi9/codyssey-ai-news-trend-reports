@@ -56,7 +56,7 @@ def site():
             if 'trends' in payload['messages'][0]['content']:
                 text = json.dumps({'trends': ['우주 연구 확대'], 'keywords': ['우주', '과학'], 'implications': ['관측 기술 발전']}, ensure_ascii=False)
             reply = {'choices': [{'message': {'content': text}, 'finish_reason': 'stop'}],
-                     'usage': {'prompt_tokens': 100, 'completion_tokens': 20, 'total_tokens': 120}}
+                     'usage': {'prompt_tokens': 100, 'completion_tokens': 20, 'total_tokens': 150}}
             if state.get('no_usage'):
                 del reply['usage']
             if state.get('malformed_first') and state['ai_calls'] == 1:
@@ -148,7 +148,7 @@ def test_full_pipeline_and_persistent_outputs(project):
     first = json.loads(lines[0])
     assert first['title'] == '우주 뉴스' and first['summary']
     log = (project[0] / 'app.log').read_text(encoding='utf-8')
-    assert '요약 토큰 합계: 호출 2회 / 입력 200 / 출력 40 / 합계 240' in log
+    assert '요약 토큰 합계: 호출 2회 / 입력 200 / 출력 40 / 합계 300 (추론 등 60, usage 미제공 0회)' in log
     assert '분석 토큰 합계: 호출 1회' in log
 
 

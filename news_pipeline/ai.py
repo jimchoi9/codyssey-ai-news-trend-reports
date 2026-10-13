@@ -67,11 +67,15 @@ class AIClient:
             return
         for key in ('prompt_tokens', 'completion_tokens', 'total_tokens'):
             self.usage[key] += usage[key]
-        logging.info('AI 토큰 사용량: 입력 %s / 출력 %s / 합계 %s', usage['prompt_tokens'], usage['completion_tokens'], usage['total_tokens'])
+        # Gemini counts thinking tokens only in total_tokens; they are billed like output.
+        logging.info('AI 토큰 사용량: 입력 %s / 출력 %s / 합계 %s (추론 등 %s)', usage['prompt_tokens'], usage['completion_tokens'],
+                     usage['total_tokens'], usage['total_tokens'] - usage['prompt_tokens'] - usage['completion_tokens'])
 
     def log_usage(self, task):
-        logging.info('%s 토큰 합계: 호출 %s회 / 입력 %s / 출력 %s / 합계 %s (usage 미제공 %s회)', task, self.usage['calls'],
-                     self.usage['prompt_tokens'], self.usage['completion_tokens'], self.usage['total_tokens'], self.usage['no_usage'])
+        u = self.usage
+        logging.info('%s 토큰 합계: 호출 %s회 / 입력 %s / 출력 %s / 합계 %s (추론 등 %s, usage 미제공 %s회)', task, u['calls'],
+                     u['prompt_tokens'], u['completion_tokens'], u['total_tokens'],
+                     u['total_tokens'] - u['prompt_tokens'] - u['completion_tokens'], u['no_usage'])
 
 
 def summarize(store, config, filters, article_id=None, limit=None, force=False):
